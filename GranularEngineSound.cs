@@ -9,7 +9,7 @@
  *  A high quality sound with a long duration also helps.
  *  Doesnt work that well on sounds with slow, clearly audible pistons.
  *  
- *  For debugging I used this sound by "Soundholder", cut only the engine reving
+ *  For debugging I used this sound by "Soundholder", cut to only the engine reving.
  *  https://freesound.org/s/425384/
  *  
  *  I suggest you play around with the concept yourself, as the results frankly could be better.
