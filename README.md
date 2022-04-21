@@ -1,4 +1,4 @@
-This is a small script, which uses granular sythesis to dynimically alter engine sounds in Unity.
+This is a small script, which uses granular synthesis to dynimically alter engine sounds in Unity.
 
 Inspired by <a href="https://youtu.be/pvrrCNxrMvg">this video</a> by Francesco Cucchiara.
 
