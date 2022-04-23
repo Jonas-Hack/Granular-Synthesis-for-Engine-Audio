@@ -1,29 +1,23 @@
 ﻿/*
  *  Written by Jonas H.
- *  Inspired by Francesco Cucchiara: https://youtu.be/pvrrCNxrMvg
- *  
- *  Takes an unsual approach to granular synthesis by assuming high frequency 
- *  in the later parts of the sound, instead of manipulating the grains themselves.
- *  
+ *
+ *  Uses granular synthesis to dynamically adapt an input engine sound to a given throttle.
+ *
  *  To get good results parameters need to be tweaked to fit your engine sound clip.
  *  A high quality sound with a long duration also helps.
- *  Doesnt work that well on sounds with slow, clearly audible pistons.
- *  
- *  For debugging I used this sound by "Soundholder", cut to only the engine reving.
- *  https://freesound.org/s/425384/
- *  
- *  I suggest you play around with the concept yourself, as the results frankly could be better.
- *  This was written in a single evening after all.
- */
+ *  Works better with engines, which dont have slow and clearly audible pistons.
+*/
 
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-[RequireComponent(typeof(AudioSource))]
+//[RequireComponent(typeof(AudioSource))]
 public class GranularEngineSound : MonoBehaviour
 {
     AudioSource source;
+    AudioSource source2;
+    bool useAudioSource2 = false;
 
     [Tooltip("Sample of an engine going from low rpm to high")]
     [SerializeField] AudioClip clip = null;
@@ -36,6 +30,9 @@ public class GranularEngineSound : MonoBehaviour
 
     [Tooltip("How long is a single grain in milli seconds")]
     [SerializeField] float grainTime = 300.0f;//Will lead to wonky behaviour if < deltaTime
+
+    [Tooltip("How long is a crossfade")]
+    [SerializeField] float envelopeTime = 50.0f;//Will lead to wonky behaviour if > grainTime / 2
 
     [Tooltip("How small does a sample need to be to count as a good cur point to avoid clipping")]
     [SerializeField] float clipMargin = 0.1f;//Should also be kept low
@@ -53,12 +50,19 @@ public class GranularEngineSound : MonoBehaviour
 
     void Awake()
     {
-        source = gameObject.GetComponent<AudioSource>();
+        //source = gameObject.GetComponent<AudioSource>();
+        source = gameObject.AddComponent<AudioSource>();
+        source2 = gameObject.AddComponent<AudioSource>();
 
         if (clip == null)
             Debug.LogWarning("The input audio clip of " + gameObject.name + " is null. "
                 + "This will likely result in an error. Please assign a clip in the inspector");
         
+        if(envelopeTime > grainTime)
+        {
+            envelopeTime = grainTime / 2.0f;
+            Debug.LogWarning("The envelope size was higer than half the grainTime and has been adjusted");
+        }
 
         generateGrains();
     }
@@ -66,7 +70,7 @@ public class GranularEngineSound : MonoBehaviour
     private void Update()
     {
         //Just cycles through throttle for debug
-        //rev = 1.0f - Mathf.Abs(Mathf.Sin(Time.time / 5.0f));
+        rev = 1.0f - Mathf.Abs(Mathf.Sin(Time.time / 5.0f));
 
         scheduleGrains();
 
@@ -89,10 +93,13 @@ public class GranularEngineSound : MonoBehaviour
 
         //Find nice seperation points between grains to avoid clicking
         //int grainSize = (int)(grainTime * clip.samples / clip.length / 1000.0f);
-        int grainSize = (int)(grainTime / 1000.0f * clip.frequency);
+        int grainSize = (int)((double)grainTime / 1000.0 * clip.frequency);
         LinkedList<int> grainIndices = new LinkedList<int>();
 
-        source.clip = AudioClip.Create("grain", (int)(grainSize*2.0f), 1, clip.frequency, false); 
+        int envelopeSize = (int)((double)envelopeTime / 1000.0 * clip.frequency);
+
+        source.clip = AudioClip.Create("grain", (int)(grainSize*2.0f), 1, clip.frequency, false);
+        source2.clip = AudioClip.Create("grain2", (int)(grainSize*2.0f), 1, clip.frequency, false); 
 
         grainIndices.AddLast(0);
         for (int index = grainSize; index < samples; index += grainSize)
@@ -119,6 +126,7 @@ public class GranularEngineSound : MonoBehaviour
             grainIndices.AddLast(index);
         }
 
+
         //Copy corresponding clips into nice seperated arrays
         grains = new float[grainIndices.Count][];
         LinkedListNode<int> node = grainIndices.First;
@@ -134,7 +142,7 @@ public class GranularEngineSound : MonoBehaviour
             {
                 nextIndex = samples;//Last grain takes all remaining data
 
-                if (nextIndex - index < grainSize / 2)
+                if (nextIndex - index <= (grainSize+envelopeSize) / 2)
                     index = node.Previous.Value;//Avoid an incredibly short last grain
             }
             else
@@ -143,9 +151,17 @@ public class GranularEngineSound : MonoBehaviour
 
             //The actual copying
             grains[i] = new float[nextIndex - index];
-            for(int sampleNumber = 0; index < nextIndex; index++, sampleNumber++)
+
+            for(int sampleNumber = 0, runningIndex = index; runningIndex < nextIndex; runningIndex++, sampleNumber++)
             {
-                grains[i][sampleNumber] = data[index];
+                //Crossfade
+                float fadeIn = Mathf.Clamp((float)sampleNumber / (float)envelopeSize, 0.0f, 1.0f);
+                float fadeOut = Mathf.Clamp((float)(sampleNumber - grains[i].Length) / -(float)envelopeSize, 0.0f, 1.0f);
+                float envMul = fadeIn * fadeOut;
+                if (float.IsNaN(envMul) || float.IsInfinity(envMul)) envMul = 1.0f;
+                if (envelopeTime == 0) envMul = 1.0f;
+
+                grains[i][sampleNumber] = data[runningIndex] * envMul;
             }
 
             node = next;
@@ -156,7 +172,7 @@ public class GranularEngineSound : MonoBehaviour
     void scheduleGrains()
     {
         //Do I not have enough grains to make it to atleast the next frame?
-        while (grainSchedule.Count < System.Math.Max(2, (2 * Time.deltaTime / (grainTime / 1000.0))))
+        while (grainSchedule.Count < System.Math.Max(1, (2 * Time.deltaTime / (grainTime / 1000.0))))
         {
             //Selected wanted grain
             //(with some randomness so it doesnt get hung up on a single grain)
@@ -172,7 +188,7 @@ public class GranularEngineSound : MonoBehaviour
     void playScheduled()
     {
         //Am I close to finish playing the current grain?
-        if (AudioSettings.dspTime >= lastPlayTime + lastPlayDuration * 0.75)
+        if (AudioSettings.dspTime >= lastPlayTime + lastPlayDuration * 0.75 - (double)envelopeTime/1000.0)
         {
             //Find next in line
             int first = grainSchedule.First.Value;
@@ -180,16 +196,18 @@ public class GranularEngineSound : MonoBehaviour
 
             //schedule to play next
             double duration = (double)grains[currentGrain].Length / clip.frequency;
-            double playTime = lastPlayTime + lastPlayDuration - 0.1;
+            double playTime = lastPlayTime + lastPlayDuration - (double)envelopeTime / 1000.0 - 0.1;
 
             //Need to use this weird scheduled method as the audio thread if faster than Update
-            source.clip.SetData(grains[first], 0);
-            source.PlayScheduled(playTime);
+            AudioSource useSource = (useAudioSource2) ? source2 : source;
+            useSource.clip.SetData(grains[first], 0);
+            useSource.PlayScheduled(playTime);
 
             //keep track, so you can schedule the next one
             lastPlayDuration = duration;
             lastPlayTime = playTime;
             currentGrain = first;
+            useAudioSource2 = !useAudioSource2;//Flip sources, so loading doesnt interfere with playing the other
         }
     }
 }
