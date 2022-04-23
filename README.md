@@ -16,17 +16,21 @@ To make the granulation less noticable, grains are crossfaded (through so called
 
 ## Usage
 
-To get good results parameters need to be tweaked to fit your engine sound clip.
-A high quality sound with a long duration also helps.
+Provide a recording of an engine accelerating from idle to maximum RPM, whitout any additional sounds, as an input audio clip.
+Use long and high quality recordings.
 Works better with engines, which dont have slow and clearly audible pistons.
+
+To get good results parameters need to be tweaked to fit your engine sound clip. Specifically the grain time (in milli seconds) can have a big influence on output quality. A longer grain time is true to the input sound but may lead to more noticable cuts. Short grain times can lead to noise and create underlying frequencies.
+
+The envelope time (duration of clip cross fade) should be kept to around a third of the grain time.
  
-For debugging I used <a href="https://freesound.org/s/425384/">this</a>  <a href="https://freesound.org/people/Soundholder/sounds/425846/">and this sound</a> by "Soundholder", cut to only the engine reving.
+For debugging I used <a href="https://freesound.org/s/425384/">this</a> and <a href="https://freesound.org/people/Soundholder/sounds/425846/">this</a> sound by "Soundholder", cut to only the engine revving.
 
 ## Limitations
 
 This system has no information on when and for how long pistons are audible. 
 Therefore it may sometimes cut them off. 
-It may also lead to slightly irregular rythms.
+It may also lead to slightly irregular rhythms.
 This can make the granulation easy to hear and ruin the illusion of a continous engine sound.
 Some way of adjusting the grain sizes and positions to encompass a single firing of the piston each could solve this problem.
 At this point, that is outside the scope of this little project. When using engines whithout clearly audible pistons, the results sound quite good, although slightly sci fi.

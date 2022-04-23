@@ -70,7 +70,7 @@ public class GranularEngineSound : MonoBehaviour
     private void Update()
     {
         //Just cycles through throttle for debug
-        rev = 1.0f - Mathf.Abs(Mathf.Sin(Time.time / 5.0f));
+        //rev = 1.0f - Mathf.Abs(Mathf.Sin(Time.time / 5.0f));
 
         scheduleGrains();
 
